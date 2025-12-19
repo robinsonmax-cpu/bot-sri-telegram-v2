@@ -1,21 +1,35 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
-TOKEN = "8514555312:AAH5BNs0naq3BeFq2-n8UXt_2U9NOdNgiXk"
+import os
+
+TOKEN = os.getenv("TOKEN")
+
+if not TOKEN:
+    raise ValueError("La variable de entorno TOKEN no está configurada")
+
 # ---------------- START ----------------
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def mostrar_menu(chat, context):
     keyboard = [
         [InlineKeyboardButton("📄 RUC", callback_data="ruc")],
         [InlineKeyboardButton("🧾 Declaraciones", callback_data="declaraciones")],
-        [InlineKeyboardButton("💻 Facturación Electrónica", callback_data="facturacion"),
-        InlineKeyboardButton("🧾 Facturación Física", callback_data="facturacion_fisica")],
+        [
+            InlineKeyboardButton("💻 Facturación Electrónica", callback_data="facturacion"),
+            InlineKeyboardButton("🧾 Facturación Física", callback_data="facturacion_fisica")
+        ],
         [InlineKeyboardButton("🔐 Clave SRI", callback_data="clave")]
     ]
+
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    await update.message.reply_text(
-        "¿Qué trámite deseas realizar en el SRI?",
+    await context.bot.send_message(
+        chat_id=chat.id,
+        text="¿Qué trámite deseas realizar en el SRI?",
         reply_markup=reply_markup
     )
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await mostrar_menu(update.message.chat, context)
+
 
 # ---------------- MENU ----------------
 async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -28,49 +42,63 @@ async def menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Inscripción, actualización o suspensión del RUC.\n\n"
             "🔗 https://srienlinea.sri.gob.ec/sri-en-linea/consulta/1"
         )
-
     elif query.data == "declaraciones":
         texto = (
             "🧾 Declaraciones de Impuestos\n\n"
             "IVA, Renta y anexos.\n\n"
             "🔗 https://srienlinea.sri.gob.ec/sri-en-linea/consulta/72"
         )
-
     elif query.data == "facturacion":
         texto = (
             "💻 Facturación Electrónica\n\n"
             "Información para emitir comprobantes electrónicos.\n\n"
             "🔗 https://srienlinea.sri.gob.ec/sri-en-linea/consulta/55"
-
         )
     elif query.data == "facturacion_fisica":
         texto = (
-        "🧾 Facturación Física\n\n"
-        "Autorización y gestión de comprobantes físicos.\n\n"
-        "🔗 http://srienlinea.sri.gob.ec/sri-en-linea/consulta/36"
-    )
+            "🧾 Facturación Física\n\n"
+            "Autorización y gestión de comprobantes físicos.\n\n"
+            "🔗 http://srienlinea.sri.gob.ec/sri-en-linea/consulta/36"
+        )
     elif query.data == "clave":
         texto = (
             "🔐 Clave SRI\n\n"
             "Recuperación o creación de clave.\n\n"
             "🔗 https://srienlinea.sri.gob.ec/sri-en-linea/consulta/19"
         )
-
     else:
         texto = "Opción no válida."
 
-    keyboard = [
-        [InlineKeyboardButton("⬅ Volver al menú", callback_data="volver")]
-    ]
+    keyboard = [[InlineKeyboardButton("⬅ Volver al menú", callback_data="volver")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    await query.edit_message_text(text=texto, reply_markup=reply_markup)
+    # eliminar mensaje anterior
+    try:
+        await query.message.delete()
+    except:
+        pass
+
+    # enviar mensaje nuevo
+    await context.bot.send_message(
+        chat_id=query.message.chat.id,
+        text=texto,
+        reply_markup=reply_markup
+    )
+
+
 
 # ---------------- VOLVER ----------------
 async def volver(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await start(query, context)
+
+    try:
+        await query.message.delete()
+    except:
+        pass
+
+    await mostrar_menu(query.message.chat, context)
+
 
 # ---------------- MAIN ----------------
 def main():
@@ -82,6 +110,7 @@ def main():
 
     print("Bot del SRI activo...")
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()
